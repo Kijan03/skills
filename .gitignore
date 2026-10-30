@@ -1,0 +1,25 @@
+# Python 자동 생성물
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# 개인 전용 — 공개 레포에 올리지 않음 (시험 흔적 포함)
+_personal_notes/
+_memorize_card.md
+skill_manual.md
+cofa_cheat_sheet.md
+
+# 시험 공식 자료 — 절대 공개 금지 (외부 공유 위반)
+*.pdf
+
+# 가상환경
+.venv/
+venv/
+env/
+
+# OS / 에디터
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
