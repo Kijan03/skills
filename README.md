@@ -4,13 +4,23 @@
 무거운 의존성 없이, 데이터·작업 공간·에러를 먼저 **요약**해 주고 반복되는 뼈대 코드를
 **미리 깔아** 주는 데 목표를 둔다. 자세한 사용법은 [USAGE.md](USAGE.md) 참고.
 
-## 설치
+## 빠른 시작
 
 ```bash
-git clone <this-repo-url>
-cd data-prep-tools
-pip install -r requirements.txt   # pandas (필수) 등
+# 1) 복제
+git clone https://github.com/Kijan03/skills
+
+# 2) 폴더로 이동
+cd skills
+
+# 3) 의존성 설치 (pandas 필수 / baseline은 scikit-learn / 대시보드는 streamlit)
+pip install -r requirements.txt
+
+# 4) 작업 폴더부터 요약해 맥락 잡기
+python repo_scan.py .
 ```
+
+각 도구의 입력·출력·빈칸 채우기는 [USAGE.md](USAGE.md)에서 확인한다.
 
 ## 구성
 
