@@ -22,9 +22,12 @@
 | 예측 모델의 성능 기준선을 빨리 잡고 싶음 | `baseline.py` | 누수 없는 뼈대 모델 자동 학습 |
 | 데이터를 보여주는 화면을 띄우고 싶음 | `streamlit_mvp_base.py` | 업로드·미리보기 대시보드 뼈대 |
 | 긴 문서를 조각내 다루고 싶음 | `rag_chunking_safe.py` | 안전한 텍스트 청킹 |
+| 여러 CSV를 합치거나 묶어 집계하고 싶음 | `table_merge.py` | 조인·그룹집계를 슬림 결과로 저장 |
+| 지점 배정이나 방문 순서를 최적화하고 싶음 | `optimize_route.py` | 최근접 할당 + 경로 2-opt 개선 |
 | 에러가 났는데 원인을 모르겠음 | `err_triage.py` | 로그에서 원인 유형을 분류 |
 
-**전형적 흐름:** `repo_scan` → `data_advisor` → `baseline` → (화면 필요 시 `streamlit_mvp_base`) → 막히면 `err_triage`.
+**전형적 흐름(분석·예측):** `repo_scan` → `data_advisor` → `baseline` → (화면 필요 시 `streamlit_mvp_base`) → 막히면 `err_triage`.
+**전형적 흐름(가공·최적화):** `repo_scan` → `table_merge`(여러 파일을 합쳐 슬림 입력 만들기) → `optimize_route`(할당/경로) → (화면 필요 시 `streamlit_mvp_base`).
 
 ---
 
@@ -32,7 +35,8 @@
 
 - **실행:** 대부분 `python 파일.py <입력>` 형태. (예외는 Streamlit — 아래 참고)
 - **인코딩:** 입력 파일은 utf-8 / cp949 / euc-kr 등을 자동으로 시도하므로 한글 CSV도 그대로 넣으면 된다.
-- **의존성:** `data_advisor`·`repo_scan`·`err_triage`는 표준 라이브러리/pandas만.
+- **의존성:** `repo_scan`·`err_triage`·`optimize_route`는 표준 라이브러리만,
+  `data_advisor`·`eda_scanner_big`·`table_merge`는 pandas,
   `baseline`은 scikit-learn, `streamlit_mvp_base`는 streamlit이 필요하다(없으면 안내만 출력).
 - **요약 활용:** 각 도구의 출력(요약본)을 그대로 복사해, 함께 작업하는 AI 코딩 도구에
   **첫 맥락으로** 넘기면 된다. 원본 대신 요약을 넘길수록 빠르고 깔끔하다.
@@ -219,12 +223,92 @@ python err_triage.py "ValueError: shapes ..."  # 메시지 직접 전달
 
 ---
 
+## 8. `table_merge.py` — 다중 CSV 결합·집계 요약
+
+**🟢 목적 / 언제**
+여러 CSV를 **키로 조인**하거나 한 CSV를 **그룹으로 묶어 집계**해야 할 때. 특히 큰 원본을
+단계마다 다시 읽는 낭비를 막으려고, **필요한 열만 읽어** 작은 결과 파일로 저장하고
+화면에는 **요약만** 보여 준다. 이후 단계는 이 작은 파일만 입력으로 쓰면 된다.
+
+**⌨️ 입력**
+```bash
+# 조인 — 공통 키로 합치고, 남길 열만 지정
+python table_merge.py left.csv right.csv --on id --cols id,group,item --out slim.csv
+
+# 집계 — 특정 열 조합별 행 개수(=건수)를 센다
+python table_merge.py records.csv --group group,item --agg count --out summary.csv
+
+# 집계 — 합계/평균 등은 --value 로 대상 열 지정
+python table_merge.py records.csv --group item --agg sum --value qty --out sum.csv
+```
+- 파일이 **1개면 집계 모드**(`--group` 필수), **2개 이상이면 조인 모드**(`--on` 필수).
+- `--cols`로 남길 열을 지정하면 **읽기 단계에서부터 그 열만** 읽어 가볍다.
+
+**📤 출력(예시)**
+```
+[집계] 파일=records.csv · 그룹=['group', 'item'] · 집계=count
+✅ 결과: 1,420행 × 3열
+결측: 없음
+미리보기(앞 5행):
+group item  count
+    A  s07     38
+    A  s12     45
+→ 저장: summary.csv  (이후 단계는 이 파일만 입력으로 쓰세요)
+```
+
+**➡️ 효과적 사용**
+- 무거운 조인·집계는 **한 번만** 하고, 결과(슬림 파일)를 이후 단계의 입력으로 재사용한다.
+- 키나 그룹 열이 없으면 **각 파일의 열 목록을 알려주고 멈추므로**, 그걸 보고 바로 고친다.
+- 여러 파일을 합쳐 "다음 도구가 원하는 형태"로 만드는 **전처리 다리** 역할에 적합하다.
+
+---
+
+## 9. `optimize_route.py` — 지점 할당 + 경로 개선
+
+**🟢 목적 / 언제**
+좌표가 있는 점들을 **가장 가까운 곳에 배정**하거나, 점들을 도는 **방문 순서를 더 짧게**
+만들어야 할 때. 특정 소재를 모르는 범용 도구로, **점(node)·비용(cost)·출발지(depot)**
+개념만 다룬다. 배정·순회·동선 최적화류 작업이면 어디든 쓴다.
+
+**⌨️ 입력**
+```bash
+# 할당 — 대상 좌표를 후보 좌표 중 가장 가까운 것에 매칭(하버사인 거리)
+python optimize_route.py --match points.csv candidates.csv --out assign.csv
+
+# 경로 — 점 목록 + 점 사이 소요시간으로 그리디→2-opt 순서 생성
+python optimize_route.py --route nodes.csv --matrix times.csv --depot D0
+```
+- 좌표 열은 이름으로 **자동 감지**(lat/위도, lon/경도). 안 맞으면 `--lat/--lon/--id`로 지정.
+- `--matrix`는 **`from,to,minutes` 엣지 목록**을 기대한다(앞 3개 열을 from,to,cost로 해석).
+- `--depot`를 주면 그 점에서 **출발·고정**하고 나머지를 돈다.
+
+**📤 출력(예시)**
+```
+# 할당
+✅ 최근접 할당 완료: 100,000건
+⚠ 거리 1000m 초과: 87건 (도보 가능성 별도 검토)
+  p1 → c07  (320.0m)
+
+# 경로
+초기(그리디) 총비용: 74.0
+2-opt 개선 후   : 61.0  (↓ 17.6%)
+개선된 순서: D0 → c07 → c03 → c11 → ...
+```
+
+**➡️ 효과적 사용**
+- "좌표 차이(위경도 단순 뺄셈)"가 아니라 **하버사인 거리**라 동서 방향 왜곡이 없다.
+- 경로 모드는 **개선 전/후·개선율**을 함께 찍어 준다 → "기존 대비 몇 % 단축"처럼
+  **정량 근거**로 바로 쓸 수 있다.
+- 정원·시간 상한 같은 **그 문제만의 제약**은 파일 안 빈칸에서 채운다(아래 가이드 참고).
+
+---
+
 ## 🧩 뼈대 채우기 가이드 — "빈칸"이 있는 도구
 
-세 도구(`streamlit_mvp_base`·`baseline`·`rag_chunking_safe`)는 핵심 로직을 비워 두고
-`--- AI 지시용 빈칸 ---` 주석으로 그 자리를 표시해 둔다. **그 자리만** 교체해 완성하면 된다.
-나머지 네 도구(`repo_scan`·`data_advisor`·`eda_scanner_big`·`err_triage`)는 빈칸이 없으며,
-실행 후 나온 요약을 다음 작업 지시의 맥락으로 붙여 쓴다.
+네 도구(`streamlit_mvp_base`·`baseline`·`rag_chunking_safe`·`optimize_route`)는 핵심 로직을
+비워 두고 `--- AI 지시용 빈칸 ---` 주석으로 그 자리를 표시해 둔다. **그 자리만** 교체해 완성한다.
+나머지 다섯 도구(`repo_scan`·`data_advisor`·`eda_scanner_big`·`table_merge`·`err_triage`)는
+빈칸이 없으며, 실행 후 나온 요약을 다음 작업 지시의 맥락으로 붙여 쓴다.
 
 ### `streamlit_mvp_base.py` — 빈칸 2곳
 - **빈칸 1 (왼쪽, 시각화):** 지금은 `st.info(...)` 자리표시만 있다. 차트 코드로 바꾸면
@@ -247,6 +331,16 @@ python err_triage.py "ValueError: shapes ..."  # 메시지 직접 전달
   "청킹까지"였던 코드가 "질문 → 관련 청크 반환"까지 된다.
   - 예시 지시: *"`chunks` 리스트를 받아 질문과 가장 가까운 top-3을 반환하는 함수 1개만.
     무거운 벡터DB·임베딩 없이, 가벼운 의존성 하나로."*
+
+### `optimize_route.py` — 빈칸 1곳 (경로 모드)
+- 2-opt로 순서를 개선한 **직후**가 빈칸이다. 지금은 "순서"만 만든다. 여기에
+  **그 문제만의 제약**(정원 상한, 누적 시간 상한, 시간창 등)을 넣으면,
+  순서를 돌며 상한을 넘을 때 **끊어 나누는** 로직까지 완성된다.
+  - 예시 지시: *"개선된 순서를 돌 때 누적 건수가 [상한]을 넘으면 거기서 끊고
+    출발지에서 다시 시작해 여러 묶음으로 나누는 함수 1개만. 기존 순서·2-opt 결과는
+    바꾸지 말고, 새 라이브러리도 추가하지 마."*
+  - **[상한]** 자리에 숫자(예: 정원 45)나 조건을 넣는 것이 핵심. 포괄적으로 두지 말고
+    "건수 45 초과 시" / "누적 60분 초과 시"처럼 **하나로 못 박는다**.
 
 ### 빈칸을 채울 때 지시 틀 (공통)
 한 문장으로 범위를 좁혀 전달하면 결과가 깔끔하다:

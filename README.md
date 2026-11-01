@@ -32,6 +32,8 @@ python repo_scan.py .
 | `baseline.py` | 타겟 지정 시 학습/평가 분리된 뼈대 예측 모델 자동 실행 | scikit-learn, pandas |
 | `streamlit_mvp_base.py` | 로그인·DB 없는 초경량 대시보드 뼈대 (빈칸형) | streamlit, pandas |
 | `rag_chunking_safe.py` | 텍스트 청킹 유틸 (LangChain 없으면 순수 파이썬 fallback) | (선택) langchain |
+| `table_merge.py` | 여러 CSV를 조인·그룹집계해 슬림 결과로 저장 (필요한 열만 읽음) | pandas |
+| `optimize_route.py` | 좌표 최근접 할당 + 경로 2-opt 개선 (빈칸형) | (표준 라이브러리) |
 | `err_triage.py` | 에러 로그에서 원인 유형을 분류하고 정돈된 질문 생성 | (표준 라이브러리) |
 
 > 모든 스크립트는 인코딩 자동 판별(utf-8/cp949/euc-kr/latin-1)과
@@ -58,7 +60,15 @@ streamlit run streamlit_mvp_base.py
 # 6) 텍스트 청킹 요약
 python rag_chunking_safe.py document.txt
 
-# 7) 에러 원인 분류
+# 7) 여러 CSV 결합·집계 (슬림 결과 저장)
+python table_merge.py left.csv right.csv --on id --out slim.csv
+python table_merge.py records.csv --group group,item --agg count --out summary.csv
+
+# 8) 좌표 최근접 할당 / 경로 개선
+python optimize_route.py --match points.csv candidates.csv --out assign.csv
+python optimize_route.py --route nodes.csv --matrix times.csv --depot D0
+
+# 9) 에러 원인 분류
 python err_triage.py "ValueError: shapes ..."
 ```
 
@@ -68,8 +78,8 @@ python err_triage.py "ValueError: shapes ..."
 
 - **요약 먼저**: 원본을 통째로 다루기 전에 요약본을 만들어 가볍게 시작한다.
 - **경량 우선**: 시각화·무거운 라이브러리를 기본 포함하지 않는다.
-- **뼈대 + 빈칸**: `baseline.py`·`streamlit_mvp_base.py`·`rag_chunking_safe.py`는 핵심 로직을
-  의도적으로 비워 두어, 사용자가 상황에 맞는 구현을 직접 채워 넣도록 한다.
+- **뼈대 + 빈칸**: `baseline.py`·`streamlit_mvp_base.py`·`rag_chunking_safe.py`·`optimize_route.py`는
+  핵심 로직을 의도적으로 비워 두어, 사용자가 상황에 맞는 구현을 직접 채워 넣도록 한다.
 - **방어적 I/O**: 파일 입출력은 인코딩·빈 파일·포맷 오류를 모두 예외 처리한다.
 - **학습/평가 분리**: 예측 모델은 전처리를 학습 데이터 기준으로만 맞춰 혼용을 피한다.
 
