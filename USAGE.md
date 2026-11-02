@@ -29,6 +29,10 @@
 **전형적 흐름(분석·예측):** `repo_scan` → `data_advisor` → `baseline` → (화면 필요 시 `streamlit_mvp_base`) → 막히면 `err_triage`.
 **전형적 흐름(가공·최적화):** `repo_scan` → `table_merge`(여러 파일을 합쳐 슬림 입력 만들기) → `optimize_route`(할당/경로) → (화면 필요 시 `streamlit_mvp_base`).
 
+> 💡 **작업 전 계획부터:** 위 도구들의 요약을 바탕으로 [PLAN_TEMPLATE.md](PLAN_TEMPLATE.md) 형식에 맞춰
+> `plan.md`(목표·파일 역할·제약·단계별 파이프라인)를 먼저 세우고, 사람이 승인한 뒤 실행한다.
+> 계획 수립은 자동화하되 **실행은 승인 후** — 자세한 사용법은 템플릿 파일 상단 참고.
+
 ---
 
 ## 공통 사항

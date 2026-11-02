@@ -21,6 +21,8 @@ python repo_scan.py .
 ```
 
 각 도구의 입력·출력·빈칸 채우기는 [USAGE.md](USAGE.md)에서 확인한다.
+작업을 시작하기 전 계획을 세우는 데는 [PLAN_TEMPLATE.md](PLAN_TEMPLATE.md)를 쓴다
+(요약 → 계획서 초안 → 사람 승인 → 단계별 실행).
 
 ## 구성
 
