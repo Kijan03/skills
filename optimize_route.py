@@ -1,8 +1,9 @@
 """optimize_route.py — 지점 할당과 경로 개선을 위한 경량 최적화 도구.
 
 특정 소재를 모르는 범용 유틸이다.
-다루는 추상 개념은 점(node)·비용(cost)·출발지(depot)·정원(capacity) 뿐이라,
+다루는 추상 개념은 점(node)·비용(cost)·출발지(depot) 뿐이라,
 "지점들을 가까운 곳에 배정하고, 가장 짧게 돌아보는" 문제라면 어디든 쓴다.
+(용량 상한·누적 상한 같은 그 문제만의 제약은 플래그가 아니라 파일 맨 아래 빈칸에서 채운다.)
 
 두 가지 모드:
   (1) 할당(--match) : 좌표 두 그룹을 받아 하버사인 거리로 가장 가까운 짝을 찾는다.
@@ -208,6 +209,7 @@ def nearest_neighbor(nodes, c, start):
 def two_opt(order, c, fix_start):
     """방문 순서를 2-opt 로 개선한다. fix_start=True 면 첫 점(출발지)을 고정."""
     best = order[:]
+    best_cost = route_cost(best, c)  # 현재 최적 비용을 들고 다니며 재계산을 줄인다
     start_i = 1 if fix_start else 0
     improved = True
     while improved:
@@ -216,8 +218,10 @@ def two_opt(order, c, fix_start):
         for i in range(start_i, n - 1):
             for j in range(i + 1, n):
                 new = best[:i] + best[i:j + 1][::-1] + best[j + 1:]
-                if route_cost(new, c) < route_cost(best, c) - 1e-9:
+                new_cost = route_cost(new, c)
+                if new_cost < best_cost - 1e-9:
                     best = new
+                    best_cost = new_cost
                     improved = True
     return best
 
@@ -267,9 +271,9 @@ def run_route(nodes_path, matrix_path, depot, out_path, args):
 
     # --- AI 지시용 빈칸 ---
     # 여기에 이 문제만의 제약을 넣는다. 예시 지시(RSMC):
-    #   "이 순서(improved)를 돌 때, 누적 인원이 [정원]을 넘거나
-    #    누적 소요시간이 [상한]을 넘으면 거기서 경로를 끊고 출발지에서 다시 시작하는
-    #    함수 하나만 추가해 줘. 시간창(도착 20분 전 등) 계산은 별도 입력으로 받고,
+    #   "이 순서(improved)를 돌 때, 누적 수량이 [상한]을 넘거나
+    #    누적 비용이 [상한]을 넘으면 거기서 경로를 끊고 출발지에서 다시 시작하는
+    #    함수 하나만 추가해 줘. 시각 기준 오프셋 계산이 필요하면 별도 입력으로 받고,
     #    기존 2-opt 결과 순서는 바꾸지 마."
 
 
