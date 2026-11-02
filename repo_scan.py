@@ -125,6 +125,24 @@ def summarize_file(path, root):
     if ext in BINARY_EXT:
         print(f"  (바이너리/대용량, {size:,}바이트 — 이름만)")
         return
+
+    # CSV는 크기와 무관하게 헤더+행 수를 보여준다.
+    # 열 이름은 '첫 줄' 한 줄에만 있으므로, 파일이 아무리 커도 읽는 비용이 거의 없다.
+    # (크기 가드보다 먼저 처리해, 큰 과제 데이터도 열 구조는 항상 드러나게 한다.)
+    if ext == ".csv":
+        head = read_head(path, 1)
+        header = head[0] if head else "(헤더 없음)"
+        # 행 수는 저렴하게 센다(값 파싱 없이 줄 개수만)
+        try:
+            with open(path, "rb") as f:
+                n = sum(1 for _ in f)
+        except Exception:
+            n = -1
+        big = "  ※대용량" if size > MAX_READ_BYTES else ""
+        print(f"  헤더: {header[:120]}")
+        print(f"  행 수: 약 {n:,}{big} (데이터 내용은 data_advisor.py로 요약)")
+        return
+
     if size > MAX_READ_BYTES:
         print(f"  (큰 파일 {size:,}바이트 — 내용 생략)")
         return
@@ -135,17 +153,6 @@ def summarize_file(path, root):
             print("\n".join(sigs))
         else:
             print("  (함수/클래스 없음)")
-    elif ext == ".csv":
-        head = read_head(path, 1)
-        header = head[0] if head else "(헤더 없음)"
-        # 행 수는 저렴하게 센다
-        try:
-            with open(path, "rb") as f:
-                n = sum(1 for _ in f)
-        except Exception:
-            n = -1
-        print(f"  헤더: {header[:120]}")
-        print(f"  행 수: 약 {n:,} (데이터 내용은 data_advisor.py로 요약)")
     else:
         head = read_head(path, HEAD_LINES)
         if head:
